@@ -1,0 +1,23 @@
+# --- Python (backend) ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# --- Node / Angular (frontend) ---
+node_modules/
+dist/
+.angular/
+
+# --- Env / secrets ---
+.env
+*.local
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,24 @@
+# Backend dependencies (text manifest only — NOT installed by scaffolding).
+# TODO: pin exact versions before first real build.
+
+# Web framework + server
+fastapi
+uvicorn[standard]
+
+# Agent runtime
+langgraph
+langchain
+
+# Persistence
+sqlalchemy
+psycopg2-binary
+
+# Cache / session memory
+redis
+
+# Config + validation
+pydantic-settings
+
+# Auth
+python-jose[cryptography]
+passlib[bcrypt]
