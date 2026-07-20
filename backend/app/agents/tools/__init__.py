@@ -1,7 +1,14 @@
-"""Tool integrations registry.
+"""Offline tool suite for the agent runtime."""
 
-TODO: checklist "Tool integrations: GitHub, calculator, weather, Gmail,
-Google Drive, database, file system". Expose a REGISTRY mapping tool names
-to callables so the graph + /tools routes can discover them.
-"""
-# TODO: REGISTRY = {"github": ..., "calculator": ..., ...}
+from app.agents.tools.base import Tool, ToolContext, ToolError
+from app.agents.tools.registry import all_tools, get_tool, invoke_tool, tool_names
+
+__all__ = [
+    "Tool",
+    "ToolContext",
+    "ToolError",
+    "all_tools",
+    "get_tool",
+    "invoke_tool",
+    "tool_names",
+]

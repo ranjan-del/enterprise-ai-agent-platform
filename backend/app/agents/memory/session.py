@@ -1,18 +1,24 @@
-"""Session memory — short-lived, per-conversation context (Redis-backed).
+"""Session (short-term) memory — a rolling window of recent turns.
 
-TODO: checklist "Memory subsystems: session (Redis)".
+Backed by :class:`app.cache.redis.SessionCache`, which uses Redis when available
+and an in-process store otherwise. Keeps the last N turns per conversation.
 """
+
+from __future__ import annotations
+
+from app.cache.redis import get_session_cache
 
 
 class SessionMemory:
-    """Ephemeral working memory scoped to a single conversation/session."""
+    def __init__(self, conversation_id: int) -> None:
+        self.conversation_id = conversation_id
+        self._cache = get_session_cache()
 
-    def load(self, session_id: str) -> list[dict]:
-        """Return the recent turn buffer for a session."""
-        # TODO: read from Redis with TTL
-        raise NotImplementedError
+    def add(self, role: str, content: str) -> None:
+        self._cache.append_turn(self.conversation_id, role, content)
 
-    def append(self, session_id: str, item: dict) -> None:
-        """Append a turn to the session buffer."""
-        # TODO: write to Redis list, trim to window
-        raise NotImplementedError
+    def history(self) -> list[dict[str, str]]:
+        return self._cache.recent_turns(self.conversation_id)
+
+    def clear(self) -> None:
+        self._cache.clear(self.conversation_id)

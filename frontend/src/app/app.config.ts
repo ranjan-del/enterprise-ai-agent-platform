@@ -1,13 +1,13 @@
-// Application-level providers.
-// TODO: checklist "Frontend: Angular pages" — add HTTP client + interceptors.
+// Application-level providers: router + HttpClient with the auth interceptor.
 import { ApplicationConfig } from '@angular/core';
 import { provideRouter } from '@angular/router';
-// import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { routes } from './app.routes';
+import { authInterceptor } from './core/auth.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
-    // TODO: provideHttpClient(withInterceptors([authInterceptor]))
+    provideHttpClient(withInterceptors([authInterceptor])),
   ],
 };

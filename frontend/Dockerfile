@@ -1,6 +1,4 @@
-# Frontend image — build Angular, serve static via nginx.
-# TODO: checklist "docker compose up brings up full stack".
-# NOTE: scaffolding only — not built by the setup step.
+# Frontend image — build the Angular app, then serve it with nginx.
 
 # --- Build stage ---
 FROM node:20-alpine AS build
@@ -12,7 +10,7 @@ RUN npm run build
 
 # --- Serve stage ---
 FROM nginx:alpine
-# TODO: add nginx config that rewrites /api to the backend host.
-COPY --from=build /app/dist/frontend /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
