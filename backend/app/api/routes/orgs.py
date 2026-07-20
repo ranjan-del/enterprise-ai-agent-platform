@@ -1,28 +1,37 @@
-"""Organization (tenant) routes.
+"""Organization routes — read the caller's own tenant.
 
-TODO: checklist "Auth + multi-tenancy: ... organizations".
+Tenancy is strict: a user can only see their own organization.
 """
-from fastapi import APIRouter
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.db.session import get_db
+from app.deps import get_current_org, get_current_user
+from app.models.org import Org
+from app.models.user import User
+from app.schemas.auth import OrgOut
 
 router = APIRouter()
 
 
-@router.get("")
-async def list_orgs() -> dict:
-    """List organizations visible to the caller."""
-    # TODO: implement multi-tenant org listing
-    return {"detail": "TODO: implement list_orgs"}
+@router.get("", response_model=list[OrgOut])
+def list_orgs(org: Org = Depends(get_current_org)):
+    """List organizations visible to the caller (their own tenant only)."""
+    return [org]
 
 
-@router.post("")
-async def create_org() -> dict:
-    """Create a new organization (tenant)."""
-    # TODO: implement org provisioning
-    return {"detail": "TODO: implement create_org"}
-
-
-@router.get("/{org_id}")
-async def get_org(org_id: str) -> dict:
-    """Fetch a single organization by id."""
-    # TODO: implement org retrieval with tenant scoping
-    return {"detail": "TODO: implement get_org", "org_id": org_id}
+@router.get("/{org_id}", response_model=OrgOut)
+def get_org(
+    org_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if org_id != current_user.org_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your organization")
+    org = db.get(Org, org_id)
+    if org is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+    return org

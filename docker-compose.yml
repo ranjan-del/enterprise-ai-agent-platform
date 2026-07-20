@@ -1,6 +1,6 @@
-# Full-stack local orchestration.
-# TODO: checklist "docker compose up brings up full stack (api, db, redis, frontend)".
-# NOTE: scaffolding only — do NOT build/up as part of setup.
+# Full-stack local orchestration: db, redis, backend (FastAPI), frontend (nginx).
+# Bring the whole platform up with:  docker compose up --build
+# Then open http://localhost:4200 (demo login: demo@acme.com / demopass123).
 
 services:
   db:
@@ -13,6 +13,11 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   redis:
     image: redis:7
@@ -21,13 +26,19 @@ services:
 
   backend:
     build: ./backend
-    env_file:
-      - ./backend/.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/platform
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: change-me-in-production
+      CORS_ORIGINS: http://localhost:4200
+      SEED_DEMO_DATA: "true"
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   frontend:
     build: ./frontend

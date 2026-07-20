@@ -1,9 +1,135 @@
-/* Global styles. TODO: checklist "polish" — theme + design system. */
+/* Enterprise AI Agent Platform — global design system.
+   A small, self-contained token set + component primitives. Dark-first,
+   responsive, and accessible (focus rings, reduced-motion aware). */
+
 :root {
-  --brand: #4f46e5;
+  --brand: #6366f1;
+  --brand-600: #4f46e5;
+  --brand-700: #4338ca;
+  --brand-soft: rgba(99, 102, 241, 0.14);
+
+  --bg: #0b0d12;
+  --bg-elev: #12151d;
+  --bg-elev-2: #171b25;
+  --surface: #1b2030;
+  --border: #262c3a;
+  --border-strong: #333b4d;
+
+  --text: #e6e8ee;
+  --text-dim: #9aa3b2;
+  --text-faint: #6b7383;
+
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-body {
+* { box-sizing: border-box; }
+
+html, body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+h1, h2, h3 { margin: 0 0 0.4rem; font-weight: 650; letter-spacing: -0.01em; }
+p { margin: 0 0 0.75rem; color: var(--text-dim); line-height: 1.55; }
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* --- buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+  background: var(--brand-600);
+  color: #fff;
+}
+.btn:hover { background: var(--brand-700); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn.secondary { background: transparent; border-color: var(--border-strong); color: var(--text); }
+.btn.secondary:hover { background: var(--bg-elev-2); }
+.btn.ghost { background: transparent; color: var(--text-dim); }
+.btn.ghost:hover { background: var(--bg-elev-2); color: var(--text); }
+.btn.danger { background: var(--danger); }
+.btn.sm { padding: 0.4rem 0.7rem; font-size: 0.85rem; }
+.btn.block { width: 100%; }
+
+/* --- forms --- */
+.field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
+.field label { font-size: 0.85rem; color: var(--text-dim); font-weight: 500; }
+.input, textarea.input, select.input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+}
+.input:focus { border-color: var(--brand); outline: none; }
+textarea.input { resize: vertical; min-height: 80px; }
+
+/* --- cards --- */
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+/* --- misc --- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--brand-soft);
+  color: var(--brand);
+  text-transform: capitalize;
+}
+.muted { color: var(--text-faint); }
+.error-text { color: var(--danger); font-size: 0.85rem; }
+
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

@@ -1,32 +1,63 @@
-"""Application settings loaded from environment via pydantic-settings.
+"""Application configuration.
 
-TODO: checklist "Backend: FastAPI services + PostgreSQL + Redis" —
-populate real config, secrets management, and per-environment overrides.
+Settings are read from environment variables (see backend/.env.example). The
+platform is offline-first: every default lets the app boot, run, and be tested
+with zero external services.
+
+- DATABASE_URL defaults to a local SQLite file, so no PostgreSQL is required for
+  development or CI. docker-compose overrides it with a PostgreSQL URL.
+- REDIS_URL is optional. When empty or unreachable, session memory transparently
+  falls back to an in-process store (see app.cache.redis).
+- No LLM/provider API key is ever required: the agent runtime uses a
+  deterministic offline responder.
 """
+
+from functools import lru_cache
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Central settings object. Values are placeholders only."""
+    # --- App ---------------------------------------------------------------
+    APP_NAME: str = "Enterprise AI Agent Platform"
+    ENVIRONMENT: str = "development"
+
+    # --- Database ----------------------------------------------------------
+    # Local default = SQLite (no install needed). Docker overrides with Postgres.
+    DATABASE_URL: str = "sqlite:///./platform.db"
+
+    # --- Auth (JWT) --------------------------------------------------------
+    JWT_SECRET: str = "change-me"  # MUST be overridden in production
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
+    # --- Cache / session memory -------------------------------------------
+    # Optional. Empty or unreachable -> in-process fallback is used.
+    REDIS_URL: str = ""
+
+    # --- CORS --------------------------------------------------------------
+    CORS_ORIGINS: str = "http://localhost:4200"
+
+    # --- Demo seed ---------------------------------------------------------
+    # A demo org + user seeded on startup so the platform is usable immediately.
+    SEED_DEMO_DATA: bool = True
+    DEMO_ORG_NAME: str = "Acme Inc"
+    DEMO_EMAIL: str = "demo@acme.com"
+    DEMO_PASSWORD: str = "demopass123"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # App
-    app_name: str = "Enterprise AI Agent Platform"
-    environment: str = "development"
-
-    # Auth — TODO: checklist "Auth + multi-tenancy: JWT"
-    jwt_secret: str = "change-me"
-    jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60
-
-    # Datastores — TODO: checklist "PostgreSQL + Redis"
-    database_url: str = "postgresql+psycopg2://postgres:postgres@db:5432/platform"
-    redis_url: str = "redis://redis:6379/0"
-
-    # Vector store — TODO: checklist "vector store (Qdrant/pgvector)"
-    vector_url: str = "http://qdrant:6333"
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """CORS_ORIGINS is a comma-separated string; expose it as a list."""
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
 
-# TODO: cache with lru_cache once real config loading is implemented.
-settings = Settings()
+@lru_cache
+def get_settings() -> Settings:
+    """Cached accessor so the environment is parsed only once."""
+    return Settings()
+
+
+settings = get_settings()

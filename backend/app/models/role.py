@@ -1,13 +1,20 @@
-"""Role model (RBAC).
+"""Role definitions for RBAC.
 
-TODO: checklist "Auth + multi-tenancy: ... roles".
+A small string enum stored on the user row. This is the simplest design that
+fully supports the Owner / Admin / Member roles the platform needs; a separate
+``roles`` table would be overkill for a fixed role set.
 """
 
-# from app.models import Base
+import enum
 
 
-class Role:  # TODO: subclass Base, __tablename__ = "roles"
-    """Placeholder attributes: id, org_id, name, permissions (JSON)."""
+class Role(str, enum.Enum):
+    """Allowed roles. Inherits from ``str`` so it serialises cleanly to JSON."""
 
-    # TODO: map columns; define permission scopes enum
-    pass
+    OWNER = "owner"    # created the org; full control
+    ADMIN = "admin"    # manage users/agents within the org
+    MEMBER = "member"  # use agents + chat
+
+    @classmethod
+    def values(cls) -> list[str]:
+        return [r.value for r in cls]

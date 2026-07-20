@@ -1,24 +1,27 @@
-# Backend dependencies (text manifest only — NOT installed by scaffolding).
-# TODO: pin exact versions before first real build.
+# Backend dependencies — Enterprise AI Agent Platform.
+# Offline-first: everything here runs and tests with zero external services
+# and zero API keys.
 
 # Web framework + server
 fastapi
 uvicorn[standard]
 
-# Agent runtime
-langgraph
-langchain
-
 # Persistence
 sqlalchemy
-psycopg2-binary
-
-# Cache / session memory
-redis
+psycopg2-binary          # PostgreSQL driver (Docker only; SQLite needs nothing)
 
 # Config + validation
+pydantic
 pydantic-settings
+email-validator          # required by pydantic EmailStr
 
 # Auth
-python-jose[cryptography]
-passlib[bcrypt]
+bcrypt                   # password hashing (used directly; passlib is unmaintained)
+python-jose[cryptography]  # JWT encode/decode
+
+# Cache / session memory (optional — falls back to in-process store if absent)
+redis
+
+# --- dev / test only ---
+pytest
+httpx                    # FastAPI TestClient transport
