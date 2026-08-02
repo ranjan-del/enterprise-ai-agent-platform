@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.agents.tools.registry import tool_names
+from app.agents.tools.registry import offline_tool_names
 from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
@@ -48,10 +48,11 @@ def seed_demo_data() -> None:
         agent = Agent(
             org_id=org.id,
             name="Workspace Assistant",
-            description="A general-purpose assistant with calculator, notes, and time tools.",
+            description="A general-purpose assistant with every offline tool enabled.",
             system_prompt="You are a helpful enterprise workspace assistant.",
         )
-        agent.tools = tool_names()
+        # Only the offline tools: the demo has to work with no internet access.
+        agent.tools = offline_tool_names()
         db.add(agent)
 
         db.commit()

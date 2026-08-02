@@ -59,22 +59,29 @@ class SessionCache:
         self._backend = backend
 
     @staticmethod
-    def _key(conversation_id: int) -> str:
-        return f"session:conv:{conversation_id}"
+    def _key(org_id: int, conversation_id: int) -> str:
+        # The org id is part of the key on purpose. Conversation ids are unique
+        # within one database, but a shared Redis can outlive a database (or be
+        # shared by several deployments), and a recycled id must never hand one
+        # tenant another tenant's short-term context.
+        return f"session:org:{org_id}:conv:{conversation_id}"
 
-    def append_turn(self, conversation_id: int, role: str, content: str, max_turns: int = 20) -> None:
-        raw = self._backend.get(self._key(conversation_id))
+    def append_turn(
+        self, org_id: int, conversation_id: int, role: str, content: str, max_turns: int = 20
+    ) -> None:
+        key = self._key(org_id, conversation_id)
+        raw = self._backend.get(key)
         turns = json.loads(raw) if raw else []
         turns.append({"role": role, "content": content})
         turns = turns[-max_turns:]
-        self._backend.set(self._key(conversation_id), json.dumps(turns), ex=60 * 60)
+        self._backend.set(key, json.dumps(turns), ex=60 * 60)
 
-    def recent_turns(self, conversation_id: int) -> list[dict[str, str]]:
-        raw = self._backend.get(self._key(conversation_id))
+    def recent_turns(self, org_id: int, conversation_id: int) -> list[dict[str, str]]:
+        raw = self._backend.get(self._key(org_id, conversation_id))
         return json.loads(raw) if raw else []
 
-    def clear(self, conversation_id: int) -> None:
-        self._backend.delete(self._key(conversation_id))
+    def clear(self, org_id: int, conversation_id: int) -> None:
+        self._backend.delete(self._key(org_id, conversation_id))
 
 
 def _build_backend() -> Any:
@@ -102,3 +109,9 @@ def get_session_cache() -> SessionCache:
     if _session_cache is None:
         _session_cache = SessionCache(_build_backend())
     return _session_cache
+
+
+def reset_session_cache() -> None:
+    """Drop the cached backend. Used by tests so runs cannot bleed into each other."""
+    global _session_cache
+    _session_cache = None

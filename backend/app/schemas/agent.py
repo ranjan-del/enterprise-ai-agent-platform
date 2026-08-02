@@ -13,6 +13,10 @@ class AgentCreate(BaseModel):
     description: str = ""
     system_prompt: str = ""
     tools: list[str] = Field(default_factory=list)
+    # Ids of peer agents this agent may delegate to (validated to be same-org).
+    teammates: list[int] = Field(default_factory=list)
+    # Human-in-the-loop: pause before every tool call.
+    requires_approval: bool = False
 
 
 class AgentUpdate(BaseModel):
@@ -20,6 +24,8 @@ class AgentUpdate(BaseModel):
     description: str | None = None
     system_prompt: str | None = None
     tools: list[str] | None = None
+    teammates: list[int] | None = None
+    requires_approval: bool | None = None
 
 
 class AgentOut(BaseModel):
@@ -30,6 +36,8 @@ class AgentOut(BaseModel):
     description: str
     system_prompt: str
     tools: list[str]
+    teammates: list[int]
+    requires_approval: bool
     org_id: int
 
 
@@ -38,6 +46,7 @@ class ToolOut(BaseModel):
     description: str
     parameters: dict[str, str]
     examples: list[str] = Field(default_factory=list)
+    requires_network: bool = False
 
 
 class ToolInvokeRequest(BaseModel):
@@ -65,6 +74,8 @@ class AgentRunResponse(BaseModel):
     steps: list[ExecutionStep]
     tools_used: list[str]
     execution_id: int
+    # "completed" or "awaiting_approval" when the agent needs a human decision.
+    status: str = "completed"
 
 
 class ExecutionOut(BaseModel):
@@ -77,3 +88,10 @@ class ExecutionOut(BaseModel):
     tokens_used: int
     started_at: datetime
     finished_at: datetime
+
+
+class ExecutionDetail(ExecutionOut):
+    """An execution plus its full step trace and any pending approval."""
+
+    steps: list[ExecutionStep] = Field(default_factory=list)
+    pending_action: dict[str, Any] | None = None

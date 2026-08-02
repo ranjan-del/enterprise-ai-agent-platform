@@ -79,7 +79,13 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    """Authenticate credentials (optionally within a specific org) and issue tokens."""
+    """Authenticate credentials (optionally within a specific org) and issue tokens.
+
+    Emails are unique per tenant, not globally, so the same address can exist in
+    several orgs. Without an ``org_slug`` we therefore check the password
+    against every candidate account instead of just the first row: picking the
+    first would lock a user out of their second workspace.
+    """
     query = db.query(User).filter(User.email == payload.email)
     if payload.org_slug:
         org = db.query(Org).filter(Org.slug == payload.org_slug).first()
@@ -87,8 +93,12 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
         query = query.filter(User.org_id == org.id)
 
-    user = query.first()
-    if user is None or not security.verify_password(payload.password, user.hashed_password):
+    candidates = query.order_by(User.id.asc()).all()
+    user = next(
+        (u for u in candidates if security.verify_password(payload.password, u.hashed_password)),
+        None,
+    )
+    if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")

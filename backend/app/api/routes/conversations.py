@@ -1,12 +1,17 @@
 """Conversation routes — create/list conversations and exchange messages.
 
 Posting a user message runs the agent and returns the assistant's real reply
-plus the tools used and step trace. All records are tenant-scoped.
+plus the tools used and step trace. The same turn can be streamed as
+Server-Sent Events so the UI can show plan/memory/act/reflect/respond as they
+happen. All records are tenant-scoped.
 """
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -21,7 +26,7 @@ from app.schemas.conversation import (
     MessageOut,
     SendMessageRequest,
 )
-from app.services.agent_service import run_turn
+from app.services.agent_service import run_turn, stream_turn
 
 router = APIRouter()
 
@@ -102,4 +107,41 @@ def send_message(
         assistant_message=turn.assistant_message,
         tools_used=turn.tools_used,
         steps=turn.steps,
+        status=turn.status,
+    )
+
+
+@router.post("/{conversation_id}/messages/stream")
+def stream_message(
+    conversation_id: int,
+    payload: SendMessageRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Same turn as POST /messages, streamed as Server-Sent Events.
+
+    Each graph node emits one ``step`` event as it finishes and the turn ends
+    with a ``result`` event carrying the reply. Ownership is checked *before*
+    the response starts, because once streaming begins the status code is
+    already sent and an error can no longer be signalled with one.
+    """
+    conv = _get_owned_conversation(db, current_user, conversation_id)
+    agent = db.get(Agent, conv.agent_id) if conv.agent_id else None
+
+    def event_stream():
+        for event in stream_turn(
+            db,
+            org_id=current_user.org_id,
+            user_id=current_user.id,
+            conversation=conv,
+            content=payload.content,
+            agent=agent,
+        ):
+            yield f"event: {event['event']}\ndata: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        # Proxies love to buffer SSE; these ask nginx and friends not to.
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

@@ -1,4 +1,4 @@
-# Backend dependencies — Enterprise AI Agent Platform.
+# Backend dependencies for the Enterprise AI Agent Platform.
 # Offline-first: everything here runs and tests with zero external services
 # and zero API keys.
 
@@ -19,7 +19,7 @@ email-validator          # required by pydantic EmailStr
 bcrypt                   # password hashing (used directly; passlib is unmaintained)
 python-jose[cryptography]  # JWT encode/decode
 
-# Cache / session memory (optional — falls back to in-process store if absent)
+# Cache / session memory (optional; falls back to in-process store if absent)
 redis
 
 # --- dev / test only ---

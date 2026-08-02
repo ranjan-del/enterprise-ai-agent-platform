@@ -32,3 +32,19 @@ class PersistentMemory:
             .limit(limit)
             .all()
         )
+
+    def recent(self, limit: int = 10) -> list[Message]:
+        """The last ``limit`` messages, oldest-first.
+
+        Session memory is the fast path for short-term context, but it is a
+        cache: it can expire or be lost on a Redis restart. This is the durable
+        equivalent the agent falls back to.
+        """
+        rows = (
+            self.db.query(Message)
+            .filter(Message.conversation_id == self.conversation_id)
+            .order_by(Message.id.desc())
+            .limit(limit)
+            .all()
+        )
+        return list(reversed(rows))

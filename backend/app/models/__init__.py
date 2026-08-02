@@ -7,6 +7,7 @@ Importing this package registers every model on the shared declarative
 from app.models.agent import Agent
 from app.models.conversation import Conversation
 from app.models.execution import Execution
+from app.models.memory_document import MemoryDocument
 from app.models.message import Message
 from app.models.note import Note
 from app.models.org import Org
@@ -18,6 +19,7 @@ __all__ = [
     "Agent",
     "Conversation",
     "Execution",
+    "MemoryDocument",
     "Message",
     "Note",
     "Org",

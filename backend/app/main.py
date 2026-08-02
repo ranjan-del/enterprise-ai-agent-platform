@@ -13,7 +13,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401 -- register all models on Base.metadata
-from app.api.routes import agents, analytics, auth, conversations, orgs, tools, users
+from app.api.routes import (
+    agents,
+    analytics,
+    auth,
+    conversations,
+    executions,
+    memory,
+    orgs,
+    tools,
+    users,
+)
 from app.core.config import settings
 from app.db.session import Base, engine
 from app.services.seed import seed_demo_data
@@ -55,5 +65,7 @@ app.include_router(orgs.router, prefix=f"{API_PREFIX}/orgs", tags=["orgs"])
 app.include_router(users.router, prefix=f"{API_PREFIX}/users", tags=["users"])
 app.include_router(conversations.router, prefix=f"{API_PREFIX}/conversations", tags=["conversations"])
 app.include_router(agents.router, prefix=f"{API_PREFIX}/agents", tags=["agents"])
+app.include_router(executions.router, prefix=f"{API_PREFIX}/executions", tags=["executions"])
+app.include_router(memory.router, prefix=f"{API_PREFIX}/memory", tags=["memory"])
 app.include_router(tools.router, prefix=f"{API_PREFIX}/tools", tags=["tools"])
 app.include_router(analytics.router, prefix=f"{API_PREFIX}/analytics", tags=["analytics"])
