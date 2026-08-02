@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
@@ -12,7 +13,13 @@ from app.db.session import get_db
 from app.deps import get_current_user
 from app.models.agent import Agent
 from app.models.conversation import Conversation
-from app.models.execution import Execution
+from app.models.execution import (
+    AWAITING_APPROVAL,
+    COMPLETED,
+    FAILED,
+    REJECTED,
+    Execution,
+)
 from app.models.message import Message
 from app.models.user import User
 from app.schemas.analytics import ExecutionAnalytics, UsageMetrics
@@ -55,13 +62,20 @@ def usage(current_user: User = Depends(get_current_user), db: Session = Depends(
     )
 
 
+# An "act" step reads either "Executed 'tool' -> ..." or, for a delegated call,
+# "[via Teammate] Executed 'tool' -> ...". One regex covers both.
+_EXECUTED_RE = re.compile(r"Executed '([^']+)'")
+
+
 @router.get("/executions", response_model=ExecutionAnalytics)
 def executions(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     org_id = current_user.org_id
     rows = db.query(Execution).filter(Execution.org_id == org_id).all()
 
-    completed = sum(1 for r in rows if r.status == "completed")
-    failed = sum(1 for r in rows if r.status != "completed")
+    completed = sum(1 for r in rows if r.status == COMPLETED)
+    failed = sum(1 for r in rows if r.status == FAILED)
+    awaiting = sum(1 for r in rows if r.status == AWAITING_APPROVAL)
+    rejected = sum(1 for r in rows if r.status == REJECTED)
     tokens = sum(r.tokens_used for r in rows)
 
     tool_usage: dict[str, int] = {}
@@ -71,14 +85,19 @@ def executions(current_user: User = Depends(get_current_user), db: Session = Dep
         except (ValueError, TypeError):
             steps = []
         for step in steps:
-            if step.get("node") == "act" and step.get("detail", "").startswith("Executed '"):
-                name = step["detail"].split("'", 2)[1]
+            if not isinstance(step, dict) or step.get("node") != "act":
+                continue
+            match = _EXECUTED_RE.search(step.get("detail", ""))
+            if match:
+                name = match.group(1)
                 tool_usage[name] = tool_usage.get(name, 0) + 1
 
     return ExecutionAnalytics(
         total_executions=len(rows),
         completed=completed,
         failed=failed,
+        awaiting_approval=awaiting,
+        rejected=rejected,
         tokens_used=tokens,
         tool_usage=tool_usage,
     )

@@ -45,6 +45,12 @@ def get_current_user(
     user = db.get(User, int(user_id))
     if user is None or not user.is_active:
         raise _credentials_error
+    # The tenant is pinned into the token at login. Re-checking it against the
+    # row is belt-and-braces: a token minted for one tenant must never be
+    # honoured after the account moved, and a hand-crafted token that guesses a
+    # user id still has to agree with that user's real org.
+    if str(payload.get("org")) != str(user.org_id):
+        raise _credentials_error
     return user
 
 

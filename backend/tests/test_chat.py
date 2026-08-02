@@ -84,6 +84,56 @@ def test_agent_run_and_executions(auth_client):
     assert execs[0]["status"] == "completed"
 
 
+def test_turn_records_the_user_message_before_the_reply(auth_client):
+    """Both messages are written together, in order, once the run has finished."""
+    client, headers = auth_client
+    conv = _new_conversation(client, headers)
+    client.post(
+        f"/api/v1/conversations/{conv}/messages",
+        json={"content": "calculate 2 + 5"},
+        headers=headers,
+    )
+    msgs = client.get(f"/api/v1/conversations/{conv}/messages", headers=headers).json()
+    assert [m["role"] for m in msgs] == ["user", "assistant"]
+    assert msgs[0]["content"] == "calculate 2 + 5"
+    assert msgs[0]["id"] < msgs[1]["id"]
+
+
+def test_conversation_list_is_ordered_by_recent_activity(auth_client):
+    """A reply must bump its thread, otherwise the sidebar order is a lie."""
+    client, headers = auth_client
+    first = _new_conversation(client, headers)
+    second = _new_conversation(client, headers)
+
+    client.post(
+        f"/api/v1/conversations/{first}/messages",
+        json={"content": "hello again"},
+        headers=headers,
+    )
+    order = [c["id"] for c in client.get("/api/v1/conversations", headers=headers).json()]
+    assert order[0] == first, order
+    assert second in order
+
+
+def test_agent_run_reuses_an_existing_conversation(auth_client):
+    client, headers = auth_client
+    agent_id = client.post(
+        "/api/v1/agents", json={"name": "Mathy", "tools": ["calculator"]}, headers=headers
+    ).json()["id"]
+    conv = _new_conversation(client, headers)
+
+    run = client.post(
+        f"/api/v1/agents/{agent_id}/run",
+        json={"message": "calculate 8 * 8", "conversation_id": conv},
+        headers=headers,
+    ).json()
+    assert run["conversation_id"] == conv
+    assert "64" in run["reply"]
+
+    msgs = client.get(f"/api/v1/conversations/{conv}/messages", headers=headers).json()
+    assert len(msgs) == 2
+
+
 def test_analytics_usage(auth_client):
     client, headers = auth_client
     conv = _new_conversation(client, headers)

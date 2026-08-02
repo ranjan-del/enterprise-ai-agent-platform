@@ -19,5 +19,7 @@ class ExecutionAnalytics(BaseModel):
     total_executions: int
     completed: int
     failed: int
+    awaiting_approval: int = 0
+    rejected: int = 0
     tokens_used: int
     tool_usage: dict[str, int]

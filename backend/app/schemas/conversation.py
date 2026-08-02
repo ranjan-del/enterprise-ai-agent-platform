@@ -45,3 +45,5 @@ class ChatResponse(BaseModel):
     assistant_message: MessageOut
     tools_used: list[str]
     steps: list[dict]
+    # "completed", or "awaiting_approval" when the agent paused for a human.
+    status: str = "completed"

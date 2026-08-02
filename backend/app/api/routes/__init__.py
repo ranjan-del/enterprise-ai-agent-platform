@@ -5,9 +5,21 @@ from app.api.routes import (
     analytics,
     auth,
     conversations,
+    executions,
+    memory,
     orgs,
     tools,
     users,
 )
 
-__all__ = ["agents", "analytics", "auth", "conversations", "orgs", "tools", "users"]
+__all__ = [
+    "agents",
+    "analytics",
+    "auth",
+    "conversations",
+    "executions",
+    "memory",
+    "orgs",
+    "tools",
+    "users",
+]

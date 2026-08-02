@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.routes.executions import scope_executions
 from app.db.session import get_db
 from app.deps import get_current_user, require_role
 from app.models.agent import Agent
@@ -36,6 +37,33 @@ def _validate_tools(tools: list[str]) -> None:
         )
 
 
+def _validate_teammates(db: Session, org_id: int, ids: list[int], self_id: int | None = None) -> None:
+    """Reject teammate ids that are not agents of this org (or are the agent itself).
+
+    Delegation is the one feature that lets one agent act through another, so
+    the org check happens here at write time and again at run time in
+    ``agent_service.load_teammates``.
+    """
+    unique = {int(i) for i in ids}
+    if self_id is not None and self_id in unique:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An agent cannot be its own teammate",
+        )
+    if not unique:
+        return
+    found = {
+        row.id
+        for row in db.query(Agent.id).filter(Agent.id.in_(unique), Agent.org_id == org_id).all()
+    }
+    missing = sorted(unique - found)
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown teammate agents: {', '.join(str(m) for m in missing)}",
+        )
+
+
 def _get_owned_agent(db: Session, user: User, agent_id: int) -> Agent:
     agent = db.get(Agent, agent_id)
     if agent is None or agent.org_id != user.org_id:
@@ -63,13 +91,16 @@ def create_agent(
     db: Session = Depends(get_db),
 ):
     _validate_tools(payload.tools)
+    _validate_teammates(db, current_user.org_id, payload.teammates)
     agent = Agent(
         org_id=current_user.org_id,
         name=payload.name,
         description=payload.description,
         system_prompt=payload.system_prompt,
+        requires_approval=payload.requires_approval,
     )
     agent.tools = payload.tools
+    agent.teammates = payload.teammates
     db.add(agent)
     db.commit()
     db.refresh(agent)
@@ -102,6 +133,11 @@ def update_agent(
     if payload.tools is not None:
         _validate_tools(payload.tools)
         agent.tools = payload.tools
+    if payload.teammates is not None:
+        _validate_teammates(db, current_user.org_id, payload.teammates, self_id=agent.id)
+        agent.teammates = payload.teammates
+    if payload.requires_approval is not None:
+        agent.requires_approval = payload.requires_approval
     db.commit()
     db.refresh(agent)
     return agent
@@ -156,6 +192,7 @@ def run_agent_endpoint(
         steps=[ExecutionStep(**s) for s in turn.steps],
         tools_used=turn.tools_used,
         execution_id=turn.execution.id,
+        status=turn.status,
     )
 
 
@@ -166,9 +203,7 @@ def agent_executions(
     db: Session = Depends(get_db),
 ):
     _get_owned_agent(db, current_user, agent_id)
-    return (
-        db.query(Execution)
-        .filter(Execution.org_id == current_user.org_id, Execution.agent_id == agent_id)
-        .order_by(Execution.id.desc())
-        .all()
-    )
+    # Same visibility rule as /executions: members see their own runs, owners
+    # and admins see everyone's. Defined once, in the executions module.
+    query = scope_executions(db.query(Execution), current_user)
+    return query.filter(Execution.agent_id == agent_id).order_by(Execution.id.desc()).all()

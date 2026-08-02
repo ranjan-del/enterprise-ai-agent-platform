@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     # --- CORS --------------------------------------------------------------
     CORS_ORIGINS: str = "http://localhost:4200"
 
+    # --- Tools -------------------------------------------------------------
+    # Root of the sandboxed workspace used by the file-system tool. Each tenant
+    # gets its own subdirectory underneath and can never escape it.
+    WORKSPACE_ROOT: str = "./workspace_data"
+    # Network-backed tools (weather, github) are OFF by default so the whole
+    # platform stays runnable and testable with no internet access at all.
+    ALLOW_NETWORK_TOOLS: bool = False
+    NETWORK_TIMEOUT_SECONDS: float = 5.0
+
     # --- Demo seed ---------------------------------------------------------
     # A demo org + user seeded on startup so the platform is usable immediately.
     SEED_DEMO_DATA: bool = True
