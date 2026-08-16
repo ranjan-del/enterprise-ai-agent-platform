@@ -33,8 +33,15 @@ API_PREFIX = "/api/v1"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    seed_demo_data()
+    # Alembic owns the schema (`alembic upgrade head`). create_all is a local
+    # convenience for running the app or the tests against a throwaway SQLite
+    # file with no migration step, and settings forces it off in production so
+    # the two can never both be in charge. seed_demo_data() is likewise forced
+    # off there: the demo credentials are published in the README.
+    if settings.AUTO_CREATE_TABLES:
+        Base.metadata.create_all(bind=engine)
+    if settings.SEED_DEMO_DATA:
+        seed_demo_data()
     yield
 
 

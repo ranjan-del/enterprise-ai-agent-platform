@@ -1,7 +1,7 @@
 // Logs: execution history across the workspace's agents.
 import { Component, inject, signal } from '@angular/core';
 import { NgFor, NgIf } from '@angular/common';
-import { forkJoin, of } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import { ApiService } from '../../services/api.service';
 import { Agent, Execution } from '../../models';
 
@@ -47,18 +47,37 @@ export class LogsComponent {
   private api = inject(ApiService);
   rows = signal<Row[]>([]);
 
+  /**
+   * Load every run the caller may see.
+   *
+   * This used to fan out over `/agents/{id}/executions`, one request per agent,
+   * and the result was an audit page that silently omitted things. A chat turn
+   * with no agent attached belongs to no agent, so it appeared in none of those
+   * responses: the Chat page is the main way runs are created, and none of them
+   * were ever listed. A log that quietly drops rows is worse than no log,
+   * because it is read as complete.
+   *
+   * `/executions` is the endpoint that already answers this question, with the
+   * org and member visibility rules applied server-side. It is also one request
+   * instead of N, and it cannot skew if an agent is deleted mid-load.
+   */
   constructor() {
-    this.api.get<Agent[]>('/agents').subscribe((agents) => {
-      if (!agents.length) return;
-      const calls = agents.map((a) => this.api.get<Execution[]>(`/agents/${a.id}/executions`));
-      forkJoin(calls.length ? calls : [of([] as Execution[])]).subscribe((results) => {
-        const rows: Row[] = [];
-        results.forEach((execs, i) => {
-          for (const e of execs) rows.push({ ...e, agentName: agents[i].name });
-        });
-        rows.sort((a, b) => b.id - a.id);
-        this.rows.set(rows);
-      });
+    forkJoin({
+      executions: this.api.get<Execution[]>('/executions'),
+      // Only used to turn agent_id into a readable name. A failure here must
+      // not take the log itself down, so it degrades to an empty list.
+      agents: this.api.get<Agent[]>('/agents').pipe(catchError(() => of([] as Agent[]))),
+    }).subscribe(({ executions, agents }) => {
+      const names = new Map(agents.map((a) => [a.id, a.name]));
+      this.rows.set(
+        executions.map((e) => ({
+          ...e,
+          agentName:
+            e.agent_id === null
+              ? 'Chat (no agent)'
+              : names.get(e.agent_id) ?? `Agent #${e.agent_id}`,
+        })),
+      );
     });
   }
 

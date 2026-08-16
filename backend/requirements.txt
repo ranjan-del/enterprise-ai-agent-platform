@@ -8,6 +8,7 @@ uvicorn[standard]
 
 # Persistence
 sqlalchemy
+alembic                  # schema migrations (see alembic/ and `alembic upgrade head`)
 psycopg2-binary          # PostgreSQL driver (Docker only; SQLite needs nothing)
 
 # Config + validation

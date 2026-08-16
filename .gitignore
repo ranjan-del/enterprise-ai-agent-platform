@@ -24,3 +24,7 @@ dist/
 Thumbs.db
 .idea/
 .vscode/
+
+# Frontend test artifacts
+coverage/
+out-tsc/

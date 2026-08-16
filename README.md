@@ -1,5 +1,15 @@
 # Enterprise AI Agent Platform
 
+| | |
+|---|---|
+| **What it is** | A multi-tenant agent workspace: orgs, roles, configurable agents, layered memory, sandboxed tools, human-in-the-loop approvals, analytics |
+| **Stack** | FastAPI · SQLAlchemy · Alembic · PostgreSQL (SQLite locally) · Redis (optional) · Angular 18 |
+| **Run it** | `docker compose up --build`, or see [Installation](#installation) |
+| **Tests** | 101 backend (pytest) · 24 frontend (Karma/Jasmine) · migrations verified against PostgreSQL in CI |
+| **Read first** | [Architecture](#architecture), then [Design decisions](#design-decisions-and-trade-offs) |
+
+**The three things worth looking at:** the deterministic `plan → memory → act → reflect → respond` runtime and its execution trace, tenant isolation enforced on every id-taking endpoint (16 tests probe it with another tenant's ids), and the human-in-the-loop approval gate that can pause a run mid-graph and resume it without replaying side effects.
+
 A multi-tenant "ChatGPT Workspace": organizations, users and roles, configurable agents, chat
 conversations, a four-layer memory subsystem, a sandboxed tool suite, human-in-the-loop approvals and
 usage analytics. The backend is FastAPI, the frontend is Angular 18, and the agent runtime is a
@@ -873,13 +883,11 @@ pytest -q
 Observed result on this machine (Python 3.14.6, macOS):
 
 ```
-........................................................................ [ 82%]
-...............                                                          [100%]
-87 passed, 1 warning in 24.89s
+101 passed, 1 warning in 24.33s
 ```
 
 The single warning is a Starlette deprecation notice about `httpx` in `TestClient`, not a failure in
-this code. The 87 tests break down as:
+this code. The 101 tests break down as:
 
 | Module | Tests | Covers |
 |---|---:|---|
@@ -892,9 +900,38 @@ this code. The 87 tests break down as:
 | `tests/test_approval.py` | 6 | Pause, approve, reject and the replay guarantee |
 | `tests/test_multi_agent.py` | 5 | Delegation to a teammate agent |
 | `tests/test_streaming.py` | 3 | SSE frame shape and ordering |
+| `tests/test_production_safety.py` | 11 | The rails that only fire when `ENVIRONMENT=production` |
+| `tests/test_migrations.py` | 3 | Migrations build the schema, still match the models, and roll back |
 
-The suite needs no network, no Redis, no PostgreSQL and no API key. `.github/workflows/ci.yml` runs
-the same `pytest -q` on Python 3.12 and then `ng build` on Node 20.
+Two of those need a word of explanation, because both cover code that ordinary local use never
+executes.
+
+`test_production_safety.py` constructs `Settings` with `ENVIRONMENT=production` and asserts the
+refusals: a placeholder or short `JWT_SECRET` raises at import time rather than silently signing
+forgeable tokens, and `SEED_DEMO_DATA` and `AUTO_CREATE_TABLES` are forced off. The demo tenant's
+credentials are printed in this README, so seeding it on a reachable deployment would hand an
+account inside a live organization to every reader of the repository.
+
+`test_migrations.py` builds a database from `alembic upgrade head` alone and then runs Alembic's own
+`compare_metadata` against the models, asserting an empty diff. Without it, adding a column and
+forgetting the migration passes every other test here, because those tests build their schema from
+the models, and fails only on a deploy.
+
+Frontend unit tests (Karma + Jasmine, headless Chrome):
+
+```console
+$ cd frontend && npm test
+Chrome Headless: Executed 24 of 24 SUCCESS
+TOTAL: 24 SUCCESS
+```
+
+They cover `AuthService`, the interceptor's 401 handling, both guards, and the Logs page. The Logs
+specs are the ones with teeth: they fail against the previous implementation, which fanned out over
+`/agents/{id}/executions` and therefore silently omitted every chat turn that had no agent attached.
+
+The backend suite needs no network, no Redis, no PostgreSQL and no API key. `.github/workflows/ci.yml`
+runs `pytest -q` on Python 3.12, applies and rolls back the migrations against a real PostgreSQL 16
+service, and runs `npm test` plus `ng build` on Node 20.
 
 ---
 
@@ -957,10 +994,6 @@ oversights.
 
 **Not production ready**
 
-- No database migrations. Schema changes rely on `Base.metadata.create_all`, which only creates
-  missing tables. Alembic would be the first thing to add before any real deployment.
-- `JWT_SECRET` defaults to `change-me`, and the demo tenant (`demo@acme.com` / `demopass123`) is
-  seeded automatically whenever `SEED_DEMO_DATA` is true, which it is by default.
 - No rate limiting, no account lockout, no audit log beyond the execution trace, and no token
   revocation despite the `jti` claim being present for exactly that purpose.
 - No structured logging, metrics or tracing.
@@ -969,9 +1002,6 @@ oversights.
 
 **Feature gaps between backend and frontend**
 
-- The Logs page builds its rows by fanning out over `/agents/{id}/executions`, so runs from
-  conversations with no agent attached (which is what the Chat page creates) do not appear there.
-  The `/executions` endpoint already returns the complete list and would be the better source.
 - The approval prompt tells the user to approve or reject from the Logs page, but those buttons are
   not built yet. The endpoints work and are covered by tests, but today you drive them with curl or
   from `/docs`.
@@ -1000,14 +1030,13 @@ oversights.
 
 **Natural next steps**
 
-1. Alembic migrations and a hardened configuration profile.
-2. A pluggable responder interface so a real model provider can be dropped in behind the same
+1. A pluggable responder interface so a real model provider can be dropped in behind the same
    `detect_tool` and `summarize` seam, with the deterministic responder kept as the test double.
-3. Swap `TenantVectorMemory`'s scoring for pgvector while keeping the class interface.
-4. Wire the UI to `/executions`, add approve and reject buttons, and switch the Chat page to the
-   streaming endpoint.
-5. Frontend unit tests; there are currently none.
-6. Refresh-token rotation with silent renewal in the interceptor.
+2. Swap `TenantVectorMemory`'s scoring for pgvector while keeping the class interface.
+3. Add approve and reject buttons to the Logs page, and switch the Chat page to the streaming
+   endpoint.
+4. Extend frontend test coverage past the service, interceptor, guard and Logs page.
+5. Refresh-token rotation with silent renewal in the interceptor.
 
 ---
 
