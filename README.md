@@ -1040,6 +1040,23 @@ oversights.
 
 ---
 
+## Project documentation
+
+Every flagship repository documents the same ten things. Status shows what exists today.
+
+| Section | Document | Status |
+|---|---|---|
+| README | [README.md](README.md) | Written |
+| Architecture | [docs/architecture.md](docs/architecture.md) | Partial |
+| Design decisions | [docs/design-decisions.md](docs/design-decisions.md) | Partial |
+| Benchmarks | [docs/benchmarks.md](docs/benchmarks.md) | To be written |
+| Failure cases | [docs/failure-cases.md](docs/failure-cases.md) | Partial |
+| Evaluation | [docs/evaluation.md](docs/evaluation.md) | Partial |
+| Trade-offs | [docs/trade-offs.md](docs/trade-offs.md) | Partial |
+| Deployment | [docs/deployment.md](docs/deployment.md) | Partial |
+| Cost | [docs/cost.md](docs/cost.md) | To be written |
+| Future work | [docs/future-work.md](docs/future-work.md) | Partial |
+
 ## License
 
 MIT. See [LICENSE](LICENSE). Copyright (c) 2026 ranjan-del.
